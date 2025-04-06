@@ -1,0 +1,16 @@
+{
+    "files.associations": {
+        "time.h": "c",
+        "arduino.h": "c",
+        "bme68xlibrary.h": "c",
+        "array": "c",
+        "deque": "c",
+        "string": "c",
+        "unordered_map": "c",
+        "unordered_set": "c",
+        "vector": "c",
+        "string_view": "c",
+        "initializer_list": "c"
+    },
+    "idf.portWin": "COM3"
+}

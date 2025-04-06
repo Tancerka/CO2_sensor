@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Environmental Sensor Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chart-container {
+            width: 95%;
+            margin: 20px auto;
+            height: 400px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chart-wrapper {
+            position: relative;
+            margin-bottom: 40px;
+        }
+
+        .iaq-legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .iaq-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 5px;
+            color: white;
+            font-size: 14px;
+        }
+
+        .status-excellent { background-color: #00e400; }
+        .status-good { background-color: #92d050; }
+        .status-moderate { background-color: #ffff00; color: #333; }
+        .status-poor { background-color: #ff9933; }
+        .status-unhealthy { background-color: #ff0000; }
+        .status-hazardous { background-color: #800080; }
+
+        .current-values {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+
+        .value-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .value-card h3 {
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        .value-card p {
+            font-size: 24px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <h1>Environmental Sensor Dashboard</h1>
+        <div class="iaq-legend">
+            <div class="iaq-item status-excellent">Excellent (0-50)</div>
+            <div class="iaq-item status-good">Good (51-100)</div>
+            <div class="iaq-item status-moderate">Moderate (101-150)</div>
+            <div class="iaq-item status-poor">Poor (151-200)</div>
+            <div class="iaq-item status-unhealthy">Unhealthy (201-300)</div>
+            <div class="iaq-item status-hazardous">Hazardous (>300)</div>
+        </div>
+    </div>
+
+    <div class="current-values" id="currentValues">
+        <!-- Will be populated by JavaScript -->
+    </div>
+
+    <div class="chart-wrapper">
+        <div class="chart-container">
+            <canvas id="temperatureChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="pressureChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="humidityChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="co2Chart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="vocChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        function getIAQColor(value) {
+            if (value <= 50) return 'rgb(0, 228, 0)';      // Excellent
+            if (value <= 100) return 'rgb(146, 208, 80)';  // Good
+            if (value <= 150) return 'rgb(255, 255, 0)';   // Moderate
+            if (value <= 200) return 'rgb(255, 153, 51)';  // Poor
+            if (value <= 300) return 'rgb(255, 0, 0)';     // Unhealthy
+            return 'rgb(128, 0, 128)';                     // Hazardous
+        }
+
+        function createChart(canvasId, label, color, yMin, yMax, yScale) {
+            return new Chart(document.getElementById(canvasId), {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: label,
+                        data: [],
+                        borderColor: color,
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                displayFormats: {
+                                    minute: 'HH:mm'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            min: yMin,
+                            max: yMax,
+                            type: yScale,
+                            title: {
+                                display: true,
+                                text: label
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        const charts = {
+            temperature: createChart('temperatureChart', 'Temperature (°C)', 'rgb(255, 99, 132)', -10, 50, 'linear'),
+            pressure: createChart('pressureChart', 'Pressure (hPa)', 'rgb(54, 162, 235)', 950, 1050, 'linear'),
+            humidity: createChart('humidityChart', 'Humidity (%)', 'rgb(75, 192, 192)', 0, 100, 'linear'),
+            co2: createChart('co2Chart', 'CO2 (ppm)', 'rgb(153, 102, 255)', 0, 1000, 'logarithmic'),
+            voc: createChart('vocChart', 'VOC (ppm)', 'rgb(255, 159, 64)', 0, 10, 'logarithmic')
+        };
+
+        function updateCurrentValues(data) {
+            const currentValues = document.getElementById('currentValues');
+            if (!data || data.length === 0) return;
+            
+            const latest = data[data.length - 1];
+            const metrics = [
+                { label: 'Temperature', value: `${latest.temperature.toFixed(1)}°C` },
+                { label: 'Pressure', value: `${latest.pressure.toFixed(1)} hPa` },
+                { label: 'Humidity', value: `${latest.humidity.toFixed(1)}%` },
+                { label: 'CO2', value: `${latest.co2.toFixed(1)} ppm` },
+                { label: 'VOC', value: `${latest.voc.toFixed(2)} ppm` }
+            ];
+
+            currentValues.innerHTML = metrics.map(metric => `
+                <div class="value-card">
+                    <h3>${metric.label}</h3>
+                    <p>${metric.value}</p>
+                </div>
+            `).join('');
+        }
+
+        function updateCharts() {
+            fetch('/api/data')
+                .then(response => response.json())
+                .then(data => {
+                    if (!Array.isArray(data) || data.length === 0) {
+                        console.warn('No data or invalid format:', data);
+                        return;
+                    }
+
+                    const now = new Date();
+                    const sortedData = data.sort((a, b) => {
+                        const timeA = a.timestamp.split(':').reduce((acc, val, idx) => acc + val * Math.pow(60, 2 - idx), 0);
+                        const timeB = b.timestamp.split(':').reduce((acc, val, idx) => acc + val * Math.pow(60, 2 - idx), 0);
+                        return timeA - timeB;
+                    });
+
+                    updateCurrentValues(sortedData);
+
+                    const updateDataset = (chart, getValue) => {
+                        chart.data.datasets[0].data = sortedData.map(d => ({
+                            x: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 
+                                      ...d.timestamp.split(':').map(Number)),
+                            y: getValue(d)
+                        }));
+                    };
+
+                    updateDataset(charts.temperature, d => d.temperature);
+                    updateDataset(charts.pressure, d => d.pressure);
+                    updateDataset(charts.humidity, d => d.humidity);
+                    updateDataset(charts.co2, d => d.co2);
+                    updateDataset(charts.voc, d => d.voc);
+
+                    Object.values(charts).forEach(chart => chart.update('none'));
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                });
+        }
+
+        // Update every 10 minutes (600000 ms)
+        setInterval(updateCharts, 600000);
+        updateCharts(); // Initial update
+    </script>
+</body>
+</html>
